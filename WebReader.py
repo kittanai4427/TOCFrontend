@@ -25,7 +25,12 @@ def listToPandas():
     devList = []
     webList = []
     imgList = []
+    contentList = []
+    idList = []
+
+
     for i, val in enumerate(text):
+        idList.append(str(i+1))
         name = re.search('title="[^"]*">[<i>]*[^<]*<', val)
         name = re.search('>[^<]{1}.*',name[0])
         name = name[0][1:-1]
@@ -34,8 +39,12 @@ def listToPandas():
         web = 'https://en.wikipedia.org' + web[0]
         webList.append(web)
         nameList.append(name)
-        img = findImage(web)
-        imgList.append(img)
+        img,content = findImage(web)
+        contentList.append(content)
+        if img == "":
+            imgList.append('../static/images/nopic.png')
+        else:
+            imgList.append(img)
         sold = re.search('♠">[0-9.]+', val)
         sold = sold[0][3:]
         soldList.append(sold)
@@ -67,31 +76,44 @@ def listToPandas():
         else:
             dev = re.search('[a-zA-Z0-9 _/%-]+', devText)[0]
         devList.append(dev)
+    df['id'] = idList
     df['Name'] = nameList
-    df['Copies sold'] = soldList
+    df['Copies_sold'] = soldList
     df['Update'] = updateList
     df['Release'] = releaseList
     df['Genre'] = genreList
     df['Developer'] = devList
     df['Website'] = webList
     df['Image_Path'] = imgList
+    df['Content'] = contentList
     return df
 
 def findImage(web=None):
-    url = web
+    url = web #https://en.wikipedia.org/wiki/Mario_Kart_8_Deluxe
     res = requests.get(url)
     res.encoding = "utf-8"
     source = str(res.text)
+    content = findContent(source)
     path = re.search('class="infobox-image"><a href="[^"]*"',source)
     if path == None:
-        return ""
+        return "",content
     path = re.search('/wiki/[^"]*',path[0])
     path = 'https://en.wikipedia.org/' + path[0]
     res = requests.get(path)
     source = str(res.text)
     imgPath = re.search('class="fullImageLink" ?[^>]*><a href="[^"]*"', source)
     imgPath = re.search('//upload[^"]*',imgPath[0])
-    return imgPath[0]
+    return imgPath[0],content
+
+def findContent(content):
+    text = re.findall('<p>.*',content)
+    subText = re.findall(">[a-zA-Z0-9á-źÁ-Ź _.,:'-]+<?",text[0])
+    st = ''
+    for t in subText:
+        st += t[1:-1]
+    if not st[-1] == '.':
+        st += '.'
+    return st
 
 
 def pandas2Json():
@@ -103,7 +125,7 @@ def pandas2Json():
 def saveJSON():
     parsed = pandas2Json()
     with open("data.json", "w", encoding="utf-8") as output:
-        json.dump(parsed, output,ensure_ascii=False,indent=2)
+        json.dump(parsed, output,ensure_ascii=False,indent=4)
         print("Save data completely")
     return parsed
 
@@ -113,3 +135,6 @@ def getJSON():
     return data
 
 
+# === Main ===
+if __name__ == '__main__':
+    saveJSON()
